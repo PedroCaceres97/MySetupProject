@@ -1,10 +1,10 @@
 MODE ?= Debug
-CVERSION ?= Default
+CVERSION ?= 23
 
 # -------- Toolchain --------
-CC ?= gcc
-AR ?= ar
-AS ?= nasm
+CC := gcc
+AR := ar
+AS := nasm
 
 # -------- Base flags --------
 BASE_CFLAGS := -Wall -Wextra -MMD -MP

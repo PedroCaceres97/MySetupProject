@@ -15,7 +15,7 @@ ENABLE_LTO :=
 # -------- Include directories --------
 # Example:
 # USER_INCLUDES += -Ithirdparty/imgui
-USER_INCLUDES :=
+USER_INCLUDES := -IC:\Dev\mystd
 
 # -------- Library search paths --------
 # Example:
