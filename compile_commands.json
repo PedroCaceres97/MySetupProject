@@ -1,0 +1,23 @@
+[
+ {
+  "directory": "C:\\Dev\\MySetupProject",
+  "arguments": [
+   "gcc",
+   "-g",
+   "-O0",
+   "-std=gnu23",
+   "-Wall",
+   "-Wextra",
+   "-MMD",
+   "-MP",
+   "-Iinclude",
+   "-IC:/Dev/mystd",
+   "-c",
+   "src/main.c",
+   "-o",
+   "build/debug/main.o"
+  ],
+  "file": "src/main.c"
+ }
+]
+

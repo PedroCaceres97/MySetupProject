@@ -1,6 +1,7 @@
-#define MY_STDIO_IMPLEMENTATION
-#define MY_STDLIB_IMPLEMENTATION
+#define MY_LOG_COLOURED
 #include <mystd\stdio.h>
+#include <mystd\stdlib.c>
+#include <mystd\stdio.c>
 
 #ifdef MY_OS_WINDOWS
     #include <direct.h>
@@ -10,6 +11,15 @@
 #endif
 
 const char* TargetName = NULL;
+bool author_set = false;
+bool year_set = false;
+char author[128] = {0};
+char year[128] = {0};
+
+const char* ClangdTemplate = 
+"CompileFlags:\n"
+"\tAdd: [-xc, -std=gnu23]"
+"";
 
 const char* MainTemplate = 
 "#include <stdio.h>\n"
@@ -37,18 +47,17 @@ const char* MakefileConfigTemplate =
 "\n"
 "# -------- Include directories --------\n"
 "# Example:\n"
-"# USER_INCLUDES += -Ithirdparty/imgui\n"
+"# USER_INCLUDES := -Ithirdparty/imgui\n"
 "USER_INCLUDES :=\n"
 "\n"
 "# -------- Library search paths --------\n"
 "# Example:\n"
-"# USER_LIB_PATHS += -Lthirdparty/lib\n"
+"# USER_LIB_PATHS := -Lthirdparty/lib\n"
 "USER_LIB_PATHS :=\n"
 "\n"
 "# -------- Libraries to link --------\n"
 "# Example:\n"
-"# USER_LIBS += -lm\n"
-"# USER_LIBS += -lSDL2\n"
+"# USER_LIBS := -lm -lSDL2\n"
 "USER_LIBS :=\n"
 "\n"
 "# -------- Extra compiler flags --------\n"
@@ -64,18 +73,31 @@ const char* MakefileConfigTemplate =
 "\n"
 "# -------- Source overrides --------\n"
 "# Advanced usage:\n"
-"# USER_SRC_FILES := extra/foo.c extra/bar.c\n"
+"# USER_SRC_FILES := $(wildcard $(SRC_FOLDER)/$(SUBDIR)/*.c)\n"
 "USER_SRC_FILES :=\n"
 "";
 
 const char* MakefileTemplate =
+"# ===============================\n"
+"# Makefile template v0.3\n"
+"# ===============================\n"
+"# EDIT WITH PRECAUTION.\n"
+"# ===============================\n"
+"\n"
+"# -------- Build options --------\n"
 "MODE ?= Debug\n"
-"CVERSION ?= Default\n"
+"CVERSION ?= 23\n"
 "\n"
 "# -------- Toolchain --------\n"
 "CC := gcc\n"
 "AR := ar\n"
 "AS := nasm\n"
+"\n"
+"ifeq ($(OS),Windows_NT)\n"
+"    MKDIR = if not exist \"$(1)\" mkdir \"$(1)\"\n"
+"else\n"
+"    MKDIR = mkdir -p \"$(1)\"\n"
+"endif\n"
 "\n"
 "# -------- Base flags --------\n"
 "BASE_CFLAGS := -Wall -Wextra -MMD -MP\n"
@@ -93,11 +115,9 @@ const char* MakefileTemplate =
 "# -------- Mode selection --------\n"
 "ifeq ($(MODE),Debug)\n"
 "\tCFLAGS := $(DEBUG_CFLAGS)\n"
-"\tBIN_PATH   := $(BIN_FOLDER)/$(DEBUG_FOLDER)\n"
 "\tBUILD_PATH := $(BUILD_FOLDER)/$(DEBUG_FOLDER)\n"
 "else\n"
 "\tCFLAGS := $(RELEASE_CFLAGS)\n"
-"\tBIN_PATH   := $(BIN_FOLDER)/$(RELEASE_FOLDER)\n"
 "\tBUILD_PATH := $(BUILD_FOLDER)/$(RELEASE_FOLDER)\n"
 "endif\n"
 "\n"
@@ -144,11 +164,15 @@ const char* MakefileTemplate =
 "SRC_FILES := $(wildcard $(SRC_FOLDER)/*.c)\n"
 "SRC_FILES += $(USER_SRC_FILES)\n"
 "\n"
-"OBJ_FILES := $(patsubst $(SRC_FOLDER)/%.c,$(BUILD_PATH)%.o,$(SRC_FILES))\n"
+"OBJ_FILES := $(patsubst $(SRC_FOLDER)/%.c,$(BUILD_PATH)/%.o,$(SRC_FILES))\n"
 "DEPS      := $(OBJ_FILES:.o=.d)\n"
 "\n"
 "TARGET_NAME := $(notdir $(CURDIR))\n"
-"TARGET      := $(BIN_PATH)$(TARGET_NAME)\n"
+"ifeq ($(MODE),Debug)\n"
+"\tTARGET := $(BIN_FOLDER)/$(TARGET_NAME)-debug\n"
+"else\n"
+"\tTARGET := $(BIN_FOLDER)/$(TARGET_NAME)\n"
+"endif\n"
 "\n"
 ".PHONY: all clean\n"
 "\n"
@@ -156,20 +180,31 @@ const char* MakefileTemplate =
 "\n"
 "$(TARGET): $(OBJ_FILES)\n"
 "\t$(PRE_BUILD)\n"
+"\t@$(call MKDIR,$(dir $@))\n"
 "\t$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(USER_LIB_PATHS) $(USER_LIBS) $(LDFLAGS)\n"
 "\t$(POST_BUILD)\n"
 "\n"
-"$(BUILD_PATH)%.o: $(SRC_FOLDER)/%.c\n"
+"$(BUILD_PATH)/%.o: $(SRC_FOLDER)/%.c\n"
+"\t@$(call MKDIR,$(dir $@))\n"
 "\t$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@\n"
 "\n"
-"-include $(DEPS)"
+"-include $(DEPS)\n"
+"";
+
+const char* SettingsTemplate = 
+"{\n"
+"\t\"C_Cpp.intelliSenseEngine\": \"disabled\",\n"
+"\t\"clangd.arguments\": [\n"
+"\t\t\"--query-driver=**\",\n"
+"\t\t\"--header-insertion=never\",\n"
+"\t\t\"--background-index\",\n"
+"\t\t\"--clang-tidy\",\n"
+"\t\t\"--completion-style=detailed\"\n"
+"\t]\n"
+"}\n"
 "";
 
 const char* MITLicense = 
-"MIT License\n"
-"\n"
-"Copyright (c) <YEAR> <AUTHOR>\n"
-"\n"
 "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
 "of this software and associated documentation files (the \"Software\"), to deal\n"
 "in the Software without restriction, including without limitation the rights\n"
@@ -255,8 +290,7 @@ const char* gitignore =
 
 void MakeDirectories() {
     MyMakeDir("src");
-    MyMakeDir("bin/debug");
-    MyMakeDir("bin/release");
+    MyMakeDir("bin");
     MyMakeDir("build/debug");
     MyMakeDir("build/release");
     MyMakeDir(MySprintf("include/%s", TargetName));
@@ -271,6 +305,14 @@ void WriteMakefile() {
     makefile = MyFileOpen("config.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
     MyFilePrint(makefile, MakefileConfigTemplate);
     MyFileClose(makefile);
+
+    makefile = MyFileOpen(".clangd", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFilePrint(makefile, ClangdTemplate);
+    MyFileClose(makefile);
+
+    makefile = MyFileOpen(".vscode/settings.json", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFilePrint(makefile, SettingsTemplate);
+    MyFileClose(makefile);
 }
 
 void WriteMain() {
@@ -281,6 +323,8 @@ void WriteMain() {
 
 void WriteGit() {
     MyFile* git = MyFileOpen("LICENSE", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFilePrint(git, "MIT License\n\n");
+    MyFprintf(git, "Copyright (c) %s %s\n\n", MY_TERNARY(year_set, year, "<YEAR>"), MY_TERNARY(author_set, author, "<AUTHOR>"));
     MyFilePrint(git, MITLicense);
     MyFileClose(git);
 
@@ -292,35 +336,57 @@ void WriteGit() {
 int main(int argc, char** argv) {
     MY_ASSERT(argc > 1, "At least the project name must be passed as a parameter 'MyProject [name]' or 'MyProject -dirs'");
     
-    if (strcmp("-dirs", argv[1])) {
-        MyMakeDir("bin/debug");
-        MyMakeDir("bin/release");
-        MyMakeDir("build/debug");
-        MyMakeDir("build/release");
-        MyLog(MY_SUCCESS, "Directories bin/ and build/ were succesfully created");
+    if (strcmp(argv[1], "-dirs") == 0) {
+        MakeDirectories();
+        MyLog(MY_SUCCESS, "Directories were succesfully created");
+        return 0;
+    }
+    if (strcmp(argv[1], "-makefile") == 0) {
+        MyFile* makefile = MyFileOpen("Makefile", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFilePrint(makefile, MakefileTemplate);
+        MyFileClose(makefile);
+        MyLog(MY_SUCCESS, "Latest Makefile template written");
         return 0;
     }
 
     TargetName = argv[1];
+
+    bool github_public = false;
+    bool github_private = false;
+    for (int i = 2; i < argc; i++) {
+        if (argv[i][0] != '-') {
+            MyLog(MY_LOG, MySprintf("Unknown argument: %s", argv[i]));
+            continue;
+        }
+
+        if (argv[i][1] == 'a') {
+            strncpy(author, argv[++i], sizeof(author));
+            author_set = true;
+            continue;
+        } else if (argv[i][1] == 'd') {
+            strncpy(year, argv[++i], sizeof(year));
+            year_set = true;
+            continue;
+        }
+
+        if (strcmp("-github", argv[i]) == 0) {
+            github_public = true;
+        } else if (strcmp("-github-private", argv[i]) == 0) {
+            github_private = true;
+        }
+    }
 
     MyMakeDir(TargetName);
     chdir(TargetName);
     MakeDirectories();
     WriteMakefile();
     WriteMain();
-
-    bool github = false;
-    for (int i = 2; i < argc; i++) {
-        if (strcmp("-github", argv[i]) == 0 && !github) {
-            github = true;
-            WriteGit();
-            system("git init --initial-branch=main");
-            system(MySprintf("gh repo create %s --public --source=. --remote=origin", TargetName));
-            system("git add .");
-            system("git commit -m \"Initial Commit\"");
-            system("git push -u origin main");
-        }
-
-        MyLog(MY_LOG, MySprintf("Unknown argument: %s", argc));
-    }
+    WriteGit();
+    if (github_public || github_private) {
+        system("git init --initial-branch=main");
+        system(MySprintf("gh repo create %s %s --source=. --remote=origin", TargetName, MY_TERNARY(github_public, "--public", "--private")));
+        system("git add .");
+        system("git commit -m \"Initial Commit\"");
+        system("git push -u origin main");
+    } 
 }

@@ -1,3 +1,10 @@
+# ===============================
+# Makefile template v0.3
+# ===============================
+# EDIT WITH PRECAUTION.
+# ===============================
+
+# -------- Build options --------
 MODE ?= Debug
 CVERSION ?= 23
 
@@ -5,6 +12,12 @@ CVERSION ?= 23
 CC := gcc
 AR := ar
 AS := nasm
+
+ifeq ($(OS),Windows_NT)
+    MKDIR = if not exist "$(1)" mkdir "$(1)"
+else
+    MKDIR = mkdir -p "$(1)"
+endif
 
 # -------- Base flags --------
 BASE_CFLAGS := -Wall -Wextra -MMD -MP
@@ -22,11 +35,9 @@ RELEASE_FOLDER := release
 # -------- Mode selection --------
 ifeq ($(MODE),Debug)
 	CFLAGS := $(DEBUG_CFLAGS)
-	BIN_PATH   := $(BIN_FOLDER)/$(DEBUG_FOLDER)
 	BUILD_PATH := $(BUILD_FOLDER)/$(DEBUG_FOLDER)
 else
 	CFLAGS := $(RELEASE_CFLAGS)
-	BIN_PATH   := $(BIN_FOLDER)/$(RELEASE_FOLDER)
 	BUILD_PATH := $(BUILD_FOLDER)/$(RELEASE_FOLDER)
 endif
 
@@ -76,34 +87,25 @@ SRC_FILES += $(USER_SRC_FILES)
 OBJ_FILES := $(patsubst $(SRC_FOLDER)/%.c,$(BUILD_PATH)/%.o,$(SRC_FILES))
 DEPS      := $(OBJ_FILES:.o=.d)
 
-DIRS := $(BIN_PATH) $(BUILD_PATH)
-
 TARGET_NAME := $(notdir $(CURDIR))
-TARGET      := $(BIN_PATH)/$(TARGET_NAME)
+ifeq ($(MODE),Debug)
+	TARGET := $(BIN_FOLDER)/$(TARGET_NAME)-debug
+else
+	TARGET := $(BIN_FOLDER)/$(TARGET_NAME)
+endif
 
 .PHONY: all clean
 
 all: $(TARGET)
 
-# -------- Directories --------
-$(BIN_FOLDER):
-	@mkdir $(BIN_FOLDER)
-
-$(BUILD_FOLDER):
-	@mkdir $(BUILD_FOLDER)
-
-$(BIN_PATH): | $(BIN_FOLDER)
-	@mkdir $(BIN_PATH)
-
-$(BUILD_PATH): | $(BUILD_FOLDER)
-	@mkdir $(BUILD_PATH)
-
-$(TARGET): $(OBJ_FILES) | $(BIN_PATH)
+$(TARGET): $(OBJ_FILES)
 	$(PRE_BUILD)
+	@$(call MKDIR,$(dir $@))
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(USER_LIB_PATHS) $(USER_LIBS) $(LDFLAGS)
 	$(POST_BUILD)
 
-$(BUILD_PATH)/%.o: $(SRC_FOLDER)/%.c | $(BUILD_PATH)
+$(BUILD_PATH)/%.o: $(SRC_FOLDER)/%.c
+	@$(call MKDIR,$(dir $@))
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 -include $(DEPS)
