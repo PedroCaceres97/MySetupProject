@@ -17,7 +17,7 @@ MyArgvParserFlag project = {
     .listener = false,
     .value = {0},
     .short_name = 'p',
-    .expect_value = false
+    .expect_value = true
 };
 
 MyArgvParserFlag dirs = {

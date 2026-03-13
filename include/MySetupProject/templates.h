@@ -1,9 +1,9 @@
-const char* clangdTemplate = 
+static const char clangdTemplate[] = 
 "CompileFlags:\n"
 "\tAdd: [-xc, -std=gnu23]"
 "";
 
-const char* mainTemplate = 
+static const char mainTemplate[] = 
 "#include <stdio.h>\n"
 "\n"
 "int main() {\n"
@@ -12,7 +12,7 @@ const char* mainTemplate =
 "}\n"
 "";
 
-const char* makefileConfigTemplate = 
+static const char makefileConfigTemplate[] = 
 "# ===============================\n"
 "# User Build Configuration\n"
 "# ===============================\n"
@@ -59,7 +59,7 @@ const char* makefileConfigTemplate =
 "USER_SRC_FILES :=\n"
 "";
 
-const char* makefileTemplate =
+static const char makefileTemplate[] =
 "# ===============================\n"
 "# Makefile template v0.3\n"
 "# ===============================\n"
@@ -173,7 +173,7 @@ const char* makefileTemplate =
 "-include $(DEPS)\n"
 "";
 
-const char* settingsTemplate = 
+static const char settingsTemplate[] = 
 "{\n"
 "\t\"C_Cpp.intelliSenseEngine\": \"disabled\",\n"
 "\t\"clangd.arguments\": [\n"
@@ -186,7 +186,7 @@ const char* settingsTemplate =
 "}\n"
 "";
 
-const char* MITLicense = 
+static const char MITLicense[] = 
 "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
 "of this software and associated documentation files (the \"Software\"), to deal\n"
 "in the Software without restriction, including without limitation the rights\n"
@@ -206,7 +206,7 @@ const char* MITLicense =
 "SOFTWARE.\n"
 "";
 
-const char* gitignoreTemplate =
+static const char gitignoreTemplate[] =
 "# Prerequisites\n"
 "*.d\n"
 "\n"
