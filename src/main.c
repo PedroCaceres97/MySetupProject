@@ -1,5 +1,3 @@
-#include "mystd/stdio.h"
-#include "mystd/stdlib.h"
 #define MY_LOG_COLOURED
 #include <mystd\stdlib.c>
 #include <mystd\stdio.c>
@@ -55,6 +53,30 @@ MyArgvParserFlag mkconfig = {
     .expect_value = false
 };
 
+MyArgvParserFlag clangd = {
+    .long_name = "clangd",
+    .listener = false,
+    .value = {0},
+    .short_name = 0,
+    .expect_value = false
+};
+
+MyArgvParserFlag settings = {
+    .long_name = "settings",
+    .listener = false,
+    .value = {0},
+    .short_name = 0,
+    .expect_value = false
+};
+
+MyArgvParserFlag gitignore = {
+    .long_name = "gitignore",
+    .listener = false,
+    .value = {0},
+    .short_name = 0,
+    .expect_value = false
+};
+
 MyArgvParserFlag author = {
     .long_name = "author",
     .listener = false,
@@ -86,6 +108,21 @@ MyArgvParserFlag githubPrivate = {
     .short_name = 0,
     .expect_value = false
 };
+
+void WriteSensible(const char* filename, const char* template) {
+    MyLog(MY_WARNING, MySprintf("Writting latest %s template will erase any change.", filename));
+    MyPrintf("(Insert 'y' to confirm) > ");
+    char confirm = getchar();
+    if (confirm != 'y' && confirm != 'Y') {
+        MyLog(MY_WARNING, MySprintf("Latest %s aborted", filename));
+        return;
+    }
+
+    MyFile* file = MyFileOpen(filename, MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFilePrint(file, template);
+    MyFileClose(file);
+    MyLog(MY_SUCCESS, "Latest config.mk template written");
+}
 
 void MakeDirectories() {
     char current[MY_MAX_PATH] = {0};
@@ -151,6 +188,8 @@ void WriteGenerics() {
 }
 
 int main(int argc, const char** argv) {
+    MyFileEnableAnsi(MyStdout());
+    MyFileEnableAnsi(MyStderr());
     if (argc == 1) {
         MyLog(MY_FATAL, "No arguments were provided try: MySetupProject --project=[value] or MySetupProject --dirs");
     }
@@ -162,6 +201,9 @@ int main(int argc, const char** argv) {
     MyArgvParser_Register(&parser, &MIT);
     MyArgvParser_Register(&parser, &makefile);
     MyArgvParser_Register(&parser, &mkconfig);
+    MyArgvParser_Register(&parser, &clangd);
+    MyArgvParser_Register(&parser, &settings);
+    MyArgvParser_Register(&parser, &gitignore);
     MyArgvParser_Register(&parser, &author);
     MyArgvParser_Register(&parser, &year);
     MyArgvParser_Register(&parser, &githubPublic);
@@ -173,7 +215,6 @@ int main(int argc, const char** argv) {
     if (dirs.listener) {
         newProject = false;
         MakeDirectories();
-        WriteGenerics();
         MyLog(MY_SUCCESS, "Directories were succesfully created");
     }
 
@@ -191,15 +232,23 @@ int main(int argc, const char** argv) {
 
     if (mkconfig.listener) {
         newProject = false;
-        MyLog(MY_WARNING, "Writting latest config.mk template will erase any change.");
-        MyPrintf("(Insert 'y' to confirm) > ");
-        char confirm = getchar();
-        if (confirm != 'y' && confirm != 'Y') {
-            MyLog(MY_WARNING, "Latest config.mk aborted");
-        } else {
-            WriteMkconfig();
-            MyLog(MY_SUCCESS, "Latest config.mk template written");
-        }
+        WriteSensible("config.mk", makefileConfigTemplate);
+    }
+
+    if (clangd.listener) {
+        newProject = false;
+        WriteSensible(".clangd", clangdTemplate);
+    }
+
+    if (settings.listener) {
+        newProject = false;
+        MyMakeDir(".vscode");
+        WriteSensible(".vscode/settings.json", settingsTemplate);
+    }
+
+    if (gitignore.listener) {
+        newProject = false;
+        WriteSensible(".gitignore", gitignoreTemplate);
     }
 
     if (newProject) {
