@@ -183,6 +183,7 @@ int main(int argc, char** argv) {
     }
 
     if (mkconfig.listener) {
+        newProject = false;
         MyLog(MY_WARNING, "Writting latest config.mk template will erase any change.");
         MyPrintf("(Insert 'y' to confirm) > ");
         char confirm = getchar();
