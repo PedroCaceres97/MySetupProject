@@ -1,3 +1,5 @@
+#include "mystd/stdio.h"
+#include "mystd/stdlib.h"
 #define MY_LOG_COLOURED
 #include <mystd\stdlib.c>
 #include <mystd\stdio.c>
@@ -6,6 +8,7 @@
 #ifdef MY_OS_WINDOWS
     #include <direct.h>
     #define chdir _chdir
+    #define getcwd _getcwd
 #else
     #include <unistd.h>
 #endif
@@ -85,53 +88,69 @@ MyArgvParserFlag githubPrivate = {
 };
 
 void MakeDirectories() {
+    char current[MY_MAX_PATH] = {0};
+    getcwd(current, sizeof(current));
+    MyNormalizePath(current);
+    char* last = strrchr(current, '/');
+    if (!last) { last = strrchr(current, '\\'); }
+    MY_ASSERT(last, MySprintf("Invalid value returned by getchw() -> %s", current));
+
     MyMakeDir("src");
     MyMakeDir("bin");
     MyMakeDir("build/debug");
     MyMakeDir("build/release");
-    MyMakeDir(MySprintf("include/%s", project.value));
     MyMakeDir(".vscode");
+    MyMakeDir(MySprintf("include/%s", current));
 }
 void WriteMakefile() {
     MyFile* makefile = MyFileOpen("Makefile", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
     MyFilePrint(makefile, makefileTemplate);
     MyFileClose(makefile);
-
-    makefile = MyFileOpen("config.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-    MyFilePrint(makefile, makefileConfigTemplate);
-    MyFileClose(makefile);
-
-    makefile = MyFileOpen(".clangd", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-    MyFilePrint(makefile, clangdTemplate);
-    MyFileClose(makefile);
-
-    makefile = MyFileOpen(".vscode/settings.json", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-    MyFilePrint(makefile, settingsTemplate);
-    MyFileClose(makefile);
 }
-void WriteMain() {
-    MyFile* main = MyFileOpen("src/main.c", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-    MyFilePrint(main, mainTemplate);
-    MyFileClose(main);
+void WriteMkconfig() {
+    MyFile* mkconfig = MyFileOpen("config.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFilePrint(mkconfig, makefileConfigTemplate);
+    MyFileClose(mkconfig);
 }
-void WriteGit() {
+void WriteMIT() {
     const char* date = MY_TERNARY(year.listener, year.value, "<YEAR>");
     const char* auth = MY_TERNARY(author.listener, author.value, "<AUTHOR>");
     if (!year.listener) { MyLog(MY_WARNING, "Missing year writting '<YEAR>' as a default, to provide a year use --year=[value] or -y[value]"); }
     if (!author.listener) { MyLog(MY_WARNING, "Missing author writting '<AUTHOR>' as a default, to provide an author use --author=[value] or -a[value]"); }
+    
+    MyFile* MITfile = MyFileOpen("LICENSE", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFilePrint(MITfile, "MIT License\n\n");
+    MyFprintf(MITfile, "Copyright (c) %s %s\n\n", date, auth);
+    MyFilePrint(MITfile, MITLicense);
+    MyFileClose(MITfile);
+}
+void WriteGenerics() {
+    if (!MyFileExists("src/main.c")) {
+        MyFile* main = MyFileOpen("src/main.c", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFilePrint(main, mainTemplate);
+        MyFileClose(main);
+    }
 
-    MyFile* git = MyFileOpen("LICENSE", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-    MyFilePrint(git, "MIT License\n\n");
-    MyFprintf(git, "Copyright (c) %s %s\n\n", date, auth);
-    MyFilePrint(git, MITLicense);
-    MyFileClose(git);
+    if (!MyFileExists(".gitignore")) {
+        MyFile* gitignore = MyFileOpen(".gitignore", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFilePrint(gitignore, gitignoreTemplate);
+        MyFileClose(gitignore);
+    }
 
-    git = MyFileOpen(".gitignore", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-    MyFilePrint(git, gitignoreTemplate);
-    MyFileClose(git);
+    if (!MyFileExists(".clangd")) {
+        MyFile* clangd = MyFileOpen(".clangd", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFilePrint(clangd, clangdTemplate);
+        MyFileClose(clangd);
+    }
+
+    if (!MyFileExists(".vscode/settings.json")) {
+        MyFile* settings = MyFileOpen(".vscode/settings.json", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFilePrint(settings, settingsTemplate);
+        MyFileClose(settings);
+    }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
     if (argc == 1) {
         MyLog(MY_FATAL, "No arguments were provided try: MySetupProject --project=[value] or MySetupProject --dirs");
     }
@@ -147,38 +166,26 @@ int main(int argc, char** argv) {
     MyArgvParser_Register(&parser, &year);
     MyArgvParser_Register(&parser, &githubPublic);
     MyArgvParser_Register(&parser, &githubPrivate);
-    MyArgvParser_Parse(&parser, (const char**)&argv[1], argc - 1);
+    MyArgvParser_Parse(&parser, argv, argc);
 
     bool8 newProject = true;
 
     if (dirs.listener) {
         newProject = false;
-        MyMakeDir("src");
-        MyMakeDir("bin");
-        MyMakeDir("build/debug");
-        MyMakeDir("build/release");
-        MyLog(MY_SUCCESS, "Basic directories were succesfully created");
+        MakeDirectories();
+        WriteGenerics();
+        MyLog(MY_SUCCESS, "Directories were succesfully created");
     }
 
     if (MIT.listener) {
         newProject = false;
-        const char* date = MY_TERNARY(year.listener, year.value, "<YEAR>");
-        const char* auth = MY_TERNARY(author.listener, author.value, "<AUTHOR>");
-        if (!year.listener) { MyLog(MY_WARNING, "Missing year writting '<YEAR>' as a default, to provide a year use --year=[value] or -y[value]"); }
-        if (!author.listener) { MyLog(MY_WARNING, "Missing author writting '<AUTHOR>' as a default, to provide an author use --author=[value] or -a[value]"); }
-        MyFile* git = MyFileOpen("LICENSE", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-        MyFilePrint(git, "MIT License\n\n");
-        MyFprintf(git, "Copyright (c) %s %s\n\n", date, auth);
-        MyFilePrint(git, MITLicense);
-        MyFileClose(git);
+        WriteMIT();
         MyLog(MY_SUCCESS, "Latest MIT LICENSE template written");
     }
 
     if (makefile.listener) {
         newProject = false;
-        MyFile* makefile = MyFileOpen("Makefile", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-        MyFilePrint(makefile, makefileTemplate);
-        MyFileClose(makefile);
+        WriteMakefile();
         MyLog(MY_SUCCESS, "Latest Makefile template written");
     }
 
@@ -190,9 +197,7 @@ int main(int argc, char** argv) {
         if (confirm != 'y' && confirm != 'Y') {
             MyLog(MY_WARNING, "Latest config.mk aborted");
         } else {
-            MyFile* makefile = MyFileOpen("config.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
-            MyFilePrint(makefile, makefileConfigTemplate);
-            MyFileClose(makefile);
+            WriteMkconfig();
             MyLog(MY_SUCCESS, "Latest config.mk template written");
         }
     }
@@ -201,10 +206,12 @@ int main(int argc, char** argv) {
         if (!project.listener) { MyLog(MY_FATAL, "Missing project name, to provide a project name use --project=[value] or -p[value]"); }
         MyMakeDir(project.value);
         chdir(project.value);
+
         MakeDirectories();
+        WriteMIT();
+        WriteMkconfig();
         WriteMakefile();
-        WriteMain();
-        WriteGit();
+        WriteGenerics();
         if (githubPublic.listener || githubPrivate.listener) {
             system("git init --initial-branch=main");
             system(MySprintf("gh repo create %s %s --source=. --remote=origin", project.value, MY_TERNARY(githubPublic.listener, "--public", "--private")));
