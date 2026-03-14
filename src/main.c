@@ -26,7 +26,7 @@ MyArgvParserFlag dirs = {
     .long_name = "dirs",
     .listener = false,
     .value = {0},
-    .short_name = 0,
+    .short_name = 'd',
     .expect_value = false
 };
 
