@@ -1,3 +1,4 @@
+#define MY_DEBUG_DISABLE
 #define MY_LOG_COLOURED
 #include <mystd\stdlib.c>
 #include <mystd\stdio.c>
@@ -47,6 +48,14 @@ MyArgvParserFlag makefile = {
 
 MyArgvParserFlag mkconfig = {
     .long_name = "mkconfig",
+    .listener = false,
+    .value = {0},
+    .short_name = 0,
+    .expect_value = false
+};
+
+MyArgvParserFlag mktargets = {
+    .long_name = "mktargets",
     .listener = false,
     .value = {0},
     .short_name = 0,
@@ -127,17 +136,22 @@ void WriteSensible(const char* filename, const char* template) {
 void MakeDirectories() {
     char current[MY_MAX_PATH] = {0};
     getcwd(current, sizeof(current));
+    MY_ASSERT(strlen(current) > 0, "Failed getcwd");
+    MyLog(MY_DEBUG, current);
     MyNormalizePath(current);
     char* last = strrchr(current, '/');
     if (!last) { last = strrchr(current, '\\'); }
-    MY_ASSERT(last, MySprintf("Invalid value returned by getchw() -> %s", current));
+    MY_ASSERT(last, MySprintf("Invalid value returned by getcwd() -> %s", current));
 
     MyMakeDir("src");
-    MyMakeDir("bin");
-    MyMakeDir("build/debug");
-    MyMakeDir("build/release");
+    MyMakeDir("bin/debug");
+    MyMakeDir("bin/release");
+    MyMakeDir("obj/debug");
+    MyMakeDir("obj/release");
+    MyMakeDir("lib/debug");
+    MyMakeDir("lib/release");
     MyMakeDir(".vscode");
-    MyMakeDir(MySprintf("include/%s", current));
+    MyMakeDir(MySprintf("include/%s", last));
 }
 void WriteMakefile() {
     MyFile* makefile = MyFileOpen("Makefile", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
@@ -148,6 +162,11 @@ void WriteMkconfig() {
     MyFile* mkconfig = MyFileOpen("config.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
     MyFilePrint(mkconfig, makefileConfigTemplate);
     MyFileClose(mkconfig);
+}
+void WriteMktargets() {
+    MyFile* mktargets = MyFileOpen("targets.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFilePrint(mktargets, makefileTargetsTemplate);
+    MyFileClose(mktargets);
 }
 void WriteMIT() {
     const char* date = MY_TERNARY(year.listener, year.value, "<YEAR>");
@@ -201,6 +220,7 @@ int main(int argc, const char** argv) {
     MyArgvParser_Register(&parser, &MIT);
     MyArgvParser_Register(&parser, &makefile);
     MyArgvParser_Register(&parser, &mkconfig);
+    MyArgvParser_Register(&parser, &mktargets);
     MyArgvParser_Register(&parser, &clangd);
     MyArgvParser_Register(&parser, &settings);
     MyArgvParser_Register(&parser, &gitignore);
@@ -235,6 +255,11 @@ int main(int argc, const char** argv) {
         WriteSensible("config.mk", makefileConfigTemplate);
     }
 
+    if (mktargets.listener) {
+        newProject = false;
+        WriteSensible("targets.mk", makefileTargetsTemplate);
+    }
+
     if (clangd.listener) {
         newProject = false;
         WriteSensible(".clangd", clangdTemplate);
@@ -258,6 +283,7 @@ int main(int argc, const char** argv) {
 
         MakeDirectories();
         WriteMIT();
+        WriteMktargets();
         WriteMkconfig();
         WriteMakefile();
         WriteGenerics();
@@ -268,5 +294,6 @@ int main(int argc, const char** argv) {
             system("git commit -m \"Initial Commit\"");
             system("git push -u origin main");
         }
+        MyLog(MY_SUCCESS, "Project created");
     }
 }
