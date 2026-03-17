@@ -64,12 +64,12 @@ ifeq ($(MODE),release)
 	CFLAGS += $(RELEASE_CFLAGS)
 	LIB_PATH 	:= $(LIB_FOLDER)/$(RELEASE_FOLDER)
 	BIN_PATH 	:= $(BIN_FOLDER)/$(RELEASE_FOLDER)
-	BUILD_PATH 	:= $(OBJ_FOLDER)/$(RELEASE_FOLDER)
+	OBJ_PATH 	:= $(OBJ_FOLDER)/$(RELEASE_FOLDER)
 else
 	CFLAGS += $(DEBUG_CFLAGS)
 	LIB_PATH 	:= $(LIB_FOLDER)/$(DEBUG_FOLDER)
 	BIN_PATH 	:= $(BIN_FOLDER)/$(DEBUG_FOLDER)
-	BUILD_PATH 	:= $(OBJ_FOLDER)/$(DEBUG_FOLDER)
+	OBJ_PATH 	:= $(OBJ_FOLDER)/$(DEBUG_FOLDER)
 endif
 
 
@@ -115,9 +115,9 @@ include targets.mk
 all: $(TARGETS)
 
 clean:
-	@$(RMDIR) $(OBJ_FOLDER)
-	@$(RMDIR) $(BIN_FOLDER)
-	@$(RMDIR) $(LIB_FOLDER)
+	@$(call RMDIR,$(OBJ_FOLDER))
+	@$(call RMDIR,$(BIN_FOLDER))
+	@$(call RMDIR,$(LIB_FOLDER))
 
 # -------- Target generator --------
 
@@ -128,7 +128,7 @@ $(1)_TYPE ?= executable
 
 $(1)_SRC_FILES := $$(call rwildcard,$$($(1)_DIR),*.c)
 $(1)_REL_SRC := $$(patsubst $$($(1)_DIR)/%,%,$$($(1)_SRC_FILES))
-$(1)_OBJ_FILES := $$(patsubst %.c,$$(BUILD_PATH)/$(1)/%.o,$$($(1)_REL_SRC))
+$(1)_OBJ_FILES := $$(patsubst %.c,$$(OBJ_PATH)/$(1)/%.o,$$($(1)_REL_SRC))
 $(1)_DEPS_FILES := $$($(1)_OBJ_FILES:.o=.d)
 
 ifeq ($$($(1)_TYPE),executable)
@@ -145,9 +145,9 @@ endif
 
 ifeq ($$($(1)_TYPE),static)
 
-$(1): $$(LIB_FOLDER)/lib$(1).a
+$(1): $$(LIB_PATH)/lib$(1).a
 
-$$(LIB_FOLDER)/lib$(1).a: $$($(1)_OBJ_FILES)
+$$(LIB_PATH)/lib$(1).a: $$($(1)_OBJ_FILES)
 	@$(call MKDIR,$$(dir $$@))
 	$$(USER_PRE_BUILD)
 	$$(AR) rcs $$@ $$^
@@ -155,7 +155,7 @@ $$(LIB_FOLDER)/lib$(1).a: $$($(1)_OBJ_FILES)
 
 endif
 
-$$(BUILD_PATH)/$(1)/%.o: $$($(1)_DIR)/%.c
+$$(OBJ_PATH)/$(1)/%.o: $$($(1)_DIR)/%.c
 	@$$(call MKDIR,$$(dir $$@))
 	$$(CC) $$(CFLAGS) -c $$< -o $$@
 

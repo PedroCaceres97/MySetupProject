@@ -1,8 +1,6 @@
-#define MY_DEBUG_DISABLE
 #define MY_LOG_COLOURED
+#define MY_DEBUG_DISABLE
 #include <mystd\stdlib.c>
-#include <mystd\stdio.c>
-#include <mystd\argv-parser.c>
 
 #ifdef MY_OS_WINDOWS
     #include <direct.h>
@@ -14,109 +12,138 @@
 
 #include <MySetupProject/templates.h>
 
-MyArgvParserFlag project = {
-    .long_name = "project",
-    .listener = false,
+MyArgvFlag version = {
     .value = {0},
-    .short_name = 'p',
-    .expect_value = true
+    .longName = "version",
+    .shortName = 'v',
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag dirs = {
-    .long_name = "dirs",
-    .listener = false,
+MyArgvFlag project = {
     .value = {0},
-    .short_name = 'd',
-    .expect_value = false
+    .longName = "project",
+    .shortName = 'p',
+    .expectValue = true,
+    .listener = false
 };
 
-MyArgvParserFlag MIT = {
-    .long_name = "mit",
-    .listener = false,
+MyArgvFlag dirs = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "dirs",
+    .expectValue = false,
+    .shortName = 'd',
+    .listener = false
 };
 
-MyArgvParserFlag makefile = {
-    .long_name = "makefile",
-    .listener = false,
+MyArgvFlag author = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "author",
+    .shortName = 'a',
+    .expectValue = true,
+    .listener = false
 };
 
-MyArgvParserFlag mkconfig = {
-    .long_name = "mkconfig",
-    .listener = false,
+MyArgvFlag year = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "year",
+    .shortName = 'y',
+    .expectValue = true,
+    .listener = false
 };
 
-MyArgvParserFlag mktargets = {
-    .long_name = "mktargets",
-    .listener = false,
+MyArgvFlag MIT = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "mit",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag clangd = {
-    .long_name = "clangd",
-    .listener = false,
+MyArgvFlag makefile = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "makefile",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag settings = {
-    .long_name = "settings",
-    .listener = false,
+MyArgvFlag mkconfig = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "mkconfig",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag gitignore = {
-    .long_name = "gitignore",
-    .listener = false,
+MyArgvFlag mktargets = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "mktargets",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag author = {
-    .long_name = "author",
-    .listener = false,
+MyArgvFlag clangd = {
     .value = {0},
-    .short_name = 'a',
-    .expect_value = true
+    .longName = "clangd",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag year = {
-    .long_name = "year",
-    .listener = false,
+MyArgvFlag settings = {
     .value = {0},
-    .short_name = 'y',
-    .expect_value = true
+    .longName = "settings",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag githubPublic = {
-    .long_name = "github",
-    .listener = false,
+MyArgvFlag gitignore = {
     .value = {0},
-    .short_name = 'g',
-    .expect_value = false
+    .longName = "gitignore",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
 };
 
-MyArgvParserFlag githubPrivate = {
-    .long_name = "github-private",
-    .listener = false,
+MyArgvFlag githubPublic = {
     .value = {0},
-    .short_name = 0,
-    .expect_value = false
+    .longName = "github",
+    .shortName = 'g',
+    .expectValue = false,
+    .listener = false
 };
+
+MyArgvFlag githubPrivate = {
+    .value = {0},
+    .longName = "github-private",
+    .shortName = 0,
+    .expectValue = false,
+    .listener = false
+};
+
+MyArgvFlag* flags[] = {
+    &version, 
+    &project, 
+    &dirs, 
+    &author, 
+    &year, 
+    &MIT, 
+    &makefile, 
+    &mkconfig, 
+    &mktargets, 
+    &clangd, 
+    &settings, 
+    &gitignore, 
+    &githubPublic, 
+    &githubPrivate
+};
+
+void UnkownFlagCallback(const char* arg) {
+    MyLog(MY_WARNING, "Unkown flag -> %s", arg);
+}
 
 void WriteSensible(const char* filename, const char* template) {
     MyLog(MY_WARNING, MySprintf("Writting latest %s template will erase any change.", filename));
@@ -127,21 +154,19 @@ void WriteSensible(const char* filename, const char* template) {
         return;
     }
 
-    MyFile* file = MyFileOpen(filename, MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFile* file = MyFileOpen(filename, MY_FILE_WRITE | MY_FILE_NEW);
     MyFilePrint(file, template);
     MyFileClose(file);
     MyLog(MY_SUCCESS, "Latest config.mk template written");
 }
 
 void MakeDirectories() {
-    char current[MY_MAX_PATH] = {0};
+    char current[512] = {0};
     getcwd(current, sizeof(current));
     MY_ASSERT(strlen(current) > 0, "Failed getcwd");
     MyLog(MY_DEBUG, current);
-    MyNormalizePath(current);
-    char* last = strrchr(current, '/');
-    if (!last) { last = strrchr(current, '\\'); }
-    MY_ASSERT(last, MySprintf("Invalid value returned by getcwd() -> %s", current));
+    char* last = MyLastPathDivisor(current);
+    MY_ASSERT(last, "Invalid value returned by getcwd() -> %s", current);
 
     MyMakeDir("src");
     MyMakeDir("bin/debug");
@@ -154,17 +179,17 @@ void MakeDirectories() {
     MyMakeDir(MySprintf("include/%s", last));
 }
 void WriteMakefile() {
-    MyFile* makefile = MyFileOpen("Makefile", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFile* makefile = MyFileOpen("Makefile", MY_FILE_WRITE | MY_FILE_NEW);
     MyFilePrint(makefile, makefileTemplate);
     MyFileClose(makefile);
 }
 void WriteMkconfig() {
-    MyFile* mkconfig = MyFileOpen("config.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFile* mkconfig = MyFileOpen("config.mk", MY_FILE_WRITE | MY_FILE_NEW);
     MyFilePrint(mkconfig, makefileConfigTemplate);
     MyFileClose(mkconfig);
 }
 void WriteMktargets() {
-    MyFile* mktargets = MyFileOpen("targets.mk", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFile* mktargets = MyFileOpen("targets.mk", MY_FILE_WRITE | MY_FILE_NEW);
     MyFilePrint(mktargets, makefileTargetsTemplate);
     MyFileClose(mktargets);
 }
@@ -174,7 +199,7 @@ void WriteMIT() {
     if (!year.listener) { MyLog(MY_WARNING, "Missing year writting '<YEAR>' as a default, to provide a year use --year=[value] or -y[value]"); }
     if (!author.listener) { MyLog(MY_WARNING, "Missing author writting '<AUTHOR>' as a default, to provide an author use --author=[value] or -a[value]"); }
     
-    MyFile* MITfile = MyFileOpen("LICENSE", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+    MyFile* MITfile = MyFileOpen("LICENSE", MY_FILE_WRITE | MY_FILE_NEW);
     MyFilePrint(MITfile, "MIT License\n\n");
     MyFprintf(MITfile, "Copyright (c) %s %s\n\n", date, auth);
     MyFilePrint(MITfile, MITLicense);
@@ -182,55 +207,49 @@ void WriteMIT() {
 }
 void WriteGenerics() {
     if (!MyFileExists("src/main.c")) {
-        MyFile* main = MyFileOpen("src/main.c", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFile* main = MyFileOpen("src/main.c", MY_FILE_WRITE | MY_FILE_NEW);
         MyFilePrint(main, mainTemplate);
         MyFileClose(main);
     }
 
     if (!MyFileExists(".gitignore")) {
-        MyFile* gitignore = MyFileOpen(".gitignore", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFile* gitignore = MyFileOpen(".gitignore", MY_FILE_WRITE | MY_FILE_NEW);
         MyFilePrint(gitignore, gitignoreTemplate);
         MyFileClose(gitignore);
     }
 
     if (!MyFileExists(".clangd")) {
-        MyFile* clangd = MyFileOpen(".clangd", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFile* clangd = MyFileOpen(".clangd", MY_FILE_WRITE | MY_FILE_NEW);
         MyFilePrint(clangd, clangdTemplate);
         MyFileClose(clangd);
     }
 
     if (!MyFileExists(".vscode/settings.json")) {
-        MyFile* settings = MyFileOpen(".vscode/settings.json", MY_FILE_FLAG_WRITE | MY_FILE_FLAG_NEW);
+        MyFile* settings = MyFileOpen(".vscode/settings.json", MY_FILE_WRITE | MY_FILE_NEW);
         MyFilePrint(settings, settingsTemplate);
         MyFileClose(settings);
     }
 }
 
 int main(int argc, const char** argv) {
-    MyFileEnableAnsi(MyStdout());
-    MyFileEnableAnsi(MyStderr());
     if (argc == 1) {
         MyLog(MY_FATAL, "No arguments were provided try: MySetupProject --project=[value] or MySetupProject --dirs");
     }
 
-    MyArgvParser parser = {0};
-    MyArgvParser_Create(&parser);
-    MyArgvParser_Register(&parser, &project);
-    MyArgvParser_Register(&parser, &dirs);
-    MyArgvParser_Register(&parser, &MIT);
-    MyArgvParser_Register(&parser, &makefile);
-    MyArgvParser_Register(&parser, &mkconfig);
-    MyArgvParser_Register(&parser, &mktargets);
-    MyArgvParser_Register(&parser, &clangd);
-    MyArgvParser_Register(&parser, &settings);
-    MyArgvParser_Register(&parser, &gitignore);
-    MyArgvParser_Register(&parser, &author);
-    MyArgvParser_Register(&parser, &year);
-    MyArgvParser_Register(&parser, &githubPublic);
-    MyArgvParser_Register(&parser, &githubPrivate);
-    MyArgvParser_Parse(&parser, argv, argc);
+    MyArgvParse(flags, sizeof(flags) / sizeof(MyArgvFlag*), &argv[1], argc - 1, UnkownFlagCallback);
 
-    bool8 newProject = true;
+    bool newProject = true;
+
+    if (version.listener) {
+        newProject = false;
+        MyPrintf("MySetupProject v0.5 (Compiled under %s mode)\n\n",
+            #ifdef NDEBUG
+                "release"
+            #else
+                "debug"
+            #endif
+        );
+    }
 
     if (dirs.listener) {
         newProject = false;
