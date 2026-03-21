@@ -1,5 +1,3 @@
-#define MY_LOG_COLOURED
-#define MY_DEBUG_DISABLE
 #include <mystd\stdlib.c>
 
 #ifdef MY_OS_WINDOWS
@@ -10,136 +8,8 @@
     #include <unistd.h>
 #endif
 
+#include <MySetupProject/flags.h>
 #include <MySetupProject/templates.h>
-
-MyArgvFlag version = {
-    .value = {0},
-    .longName = "version",
-    .shortName = 'v',
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag project = {
-    .value = {0},
-    .longName = "project",
-    .shortName = 'p',
-    .expectValue = true,
-    .listener = false
-};
-
-MyArgvFlag dirs = {
-    .value = {0},
-    .longName = "dirs",
-    .expectValue = false,
-    .shortName = 'd',
-    .listener = false
-};
-
-MyArgvFlag author = {
-    .value = {0},
-    .longName = "author",
-    .shortName = 'a',
-    .expectValue = true,
-    .listener = false
-};
-
-MyArgvFlag year = {
-    .value = {0},
-    .longName = "year",
-    .shortName = 'y',
-    .expectValue = true,
-    .listener = false
-};
-
-MyArgvFlag MIT = {
-    .value = {0},
-    .longName = "mit",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag makefile = {
-    .value = {0},
-    .longName = "makefile",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag mkconfig = {
-    .value = {0},
-    .longName = "mkconfig",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag mktargets = {
-    .value = {0},
-    .longName = "mktargets",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag clangd = {
-    .value = {0},
-    .longName = "clangd",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag settings = {
-    .value = {0},
-    .longName = "settings",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag gitignore = {
-    .value = {0},
-    .longName = "gitignore",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag githubPublic = {
-    .value = {0},
-    .longName = "github",
-    .shortName = 'g',
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag githubPrivate = {
-    .value = {0},
-    .longName = "github-private",
-    .shortName = 0,
-    .expectValue = false,
-    .listener = false
-};
-
-MyArgvFlag* flags[] = {
-    &version, 
-    &project, 
-    &dirs, 
-    &author, 
-    &year, 
-    &MIT, 
-    &makefile, 
-    &mkconfig, 
-    &mktargets, 
-    &clangd, 
-    &settings, 
-    &gitignore, 
-    &githubPublic, 
-    &githubPrivate
-};
 
 void UnkownFlagCallback(const char* arg) {
     MyLog(MY_WARNING, "Unkown flag -> %s", arg);
@@ -194,10 +64,10 @@ void WriteMktargets() {
     MyFileClose(mktargets);
 }
 void WriteMIT() {
-    const char* date = MY_TERNARY(year.listener, year.value, "<YEAR>");
-    const char* auth = MY_TERNARY(author.listener, author.value, "<AUTHOR>");
-    if (!year.listener) { MyLog(MY_WARNING, "Missing year writting '<YEAR>' as a default, to provide a year use --year=[value] or -y[value]"); }
-    if (!author.listener) { MyLog(MY_WARNING, "Missing author writting '<AUTHOR>' as a default, to provide an author use --author=[value] or -a[value]"); }
+    const char* date = MY_TERNARY(year.trigged, year.value, "<YEAR>");
+    const char* auth = MY_TERNARY(author.trigged, author.value, "<AUTHOR>");
+    if (!year.trigged) { MyLog(MY_WARNING, "Missing year writting '<YEAR>' as a default, to provide a year use --year=[value] or -y[value]"); }
+    if (!author.trigged) { MyLog(MY_WARNING, "Missing author writting '<AUTHOR>' as a default, to provide an author use --author=[value] or -a[value]"); }
     
     MyFile* MITfile = MyFileOpen("LICENSE", MY_FILE_WRITE | MY_FILE_NEW);
     MyFilePrint(MITfile, "MIT License\n\n");
@@ -232,15 +102,16 @@ void WriteGenerics() {
 }
 
 int main(int argc, const char** argv) {
-    if (argc == 1) {
-        MyLog(MY_FATAL, "No arguments were provided try: MySetupProject --project=[value] or MySetupProject --dirs");
-    }
+    MyPrintf("\n");
 
-    MyArgvParse(flags, sizeof(flags) / sizeof(MyArgvFlag*), &argv[1], argc - 1, UnkownFlagCallback);
+    MY_ASSERT(argc > 1,"No arguments were provided try: MySetupProject --project=[value] or MySetupProject --dirs");
+
+    bool help = MyArgvParse(flags, sizeof(flags) / sizeof(MyArgvFlag*), &argv[1], argc - 1, UnkownFlagCallback);
+    if (help) { return 0; }
 
     bool newProject = true;
 
-    if (version.listener) {
+    if (version.trigged) {
         newProject = false;
         MyPrintf("MySetupProject v0.5 (Compiled under %s mode)\n\n",
             #ifdef NDEBUG
@@ -251,52 +122,52 @@ int main(int argc, const char** argv) {
         );
     }
 
-    if (dirs.listener) {
+    if (dirs.trigged) {
         newProject = false;
         MakeDirectories();
         MyLog(MY_SUCCESS, "Directories were succesfully created");
     }
 
-    if (MIT.listener) {
+    if (MIT.trigged) {
         newProject = false;
         WriteMIT();
         MyLog(MY_SUCCESS, "Latest MIT LICENSE template written");
     }
 
-    if (makefile.listener) {
+    if (makefile.trigged) {
         newProject = false;
         WriteMakefile();
         MyLog(MY_SUCCESS, "Latest Makefile template written");
     }
 
-    if (mkconfig.listener) {
+    if (mkconfig.trigged) {
         newProject = false;
         WriteSensible("config.mk", makefileConfigTemplate);
     }
 
-    if (mktargets.listener) {
+    if (mktargets.trigged) {
         newProject = false;
         WriteSensible("targets.mk", makefileTargetsTemplate);
     }
 
-    if (clangd.listener) {
+    if (clangd.trigged) {
         newProject = false;
         WriteSensible(".clangd", clangdTemplate);
     }
 
-    if (settings.listener) {
+    if (settings.trigged) {
         newProject = false;
         MyMakeDir(".vscode");
         WriteSensible(".vscode/settings.json", settingsTemplate);
     }
 
-    if (gitignore.listener) {
+    if (gitignore.trigged) {
         newProject = false;
         WriteSensible(".gitignore", gitignoreTemplate);
     }
 
     if (newProject) {
-        if (!project.listener) { MyLog(MY_FATAL, "Missing project name, to provide a project name use --project=[value] or -p[value]"); }
+        if (!project.trigged) { MyLog(MY_FATAL, "Missing project name, to provide a project name use --project=[value] or -p[value]"); }
         MyMakeDir(project.value);
         chdir(project.value);
 
@@ -306,9 +177,9 @@ int main(int argc, const char** argv) {
         WriteMkconfig();
         WriteMakefile();
         WriteGenerics();
-        if (githubPublic.listener || githubPrivate.listener) {
+        if (githubPublic.trigged || githubPrivate.trigged) {
             system("git init --initial-branch=main");
-            system(MySprintf("gh repo create %s %s --source=. --remote=origin", project.value, MY_TERNARY(githubPublic.listener, "--public", "--private")));
+            system(MySprintf("gh repo create %s %s --source=. --remote=origin", project.value, MY_TERNARY(githubPublic.trigged, "--public", "--private")));
             system("git add .");
             system("git commit -m \"Initial Commit\"");
             system("git push -u origin main");
